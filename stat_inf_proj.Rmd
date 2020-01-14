@@ -1,0 +1,204 @@
+---
+title: "Statistical inference with the GSS data - Opinion of people having different financial backgrounds/family income with respect to their spending on Mass Transportation"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+rm(list = ls())
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(rio)
+library(car)
+```
+
+### Load data
+
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+Description:
+
+The General Social Survey(GSS) has been collecting data in the United States to monitor societal change and its growing complexity. GSS questions cover a diverse range of issues including national spending priorities, marijuana use, crime and punishment, race relations, quality of life, confidence in institutions, and sexual behavior.
+
+The data extract contains 57061 observations of 114 variables.
+
+Scopes of Inference:
+It won't be possible to make causal inferences from the data because the survey conducted is a type of observational study. As a large representative random sampling was drawn, the data for the sample is generalizable to the adult population of the participating States.
+
+* * *
+
+## Part 2: Research question
+
+Opinion of people belonging to families of varied income with regard to spending on Mass or Public Transportation.
+
+GSS conducted a survey where they asked people to tell whether they think they are spending too much money, too little money, or about the right amount of money on Mass Transportation.
+
+In this analysis, I am interested in finding out if people belonging to families with a low or moderate total income feel are overburdened when it comes to spending on Mass or Public transportation. For most of these families, mass transportation is the sole means of moving or transporting from one place to another and the Government can solve a big problem in cities by making sure the transportation costs are affordable for majority of the people.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+i) Total family income: Categorical variable indicating total family income from all sources before taxes, for an individual in the United States. (25 levels initially)
+```{r}
+summary(gss$income06)
+```
+
+```{r}
+str(gss$income06)
+```
+ii) Mass Transportation Spending: Categorical variable indicating the individual's opinion on whether they are spending "Too Little", "About Right", "Too Much" on mass or public transportation. (4 levels initially)
+```{r}
+summary(gss$natmass)
+```
+
+```{r}
+str(gss$natmass)
+```
+
+In the above dataset, the "year" variable will be relevant because the underlying question would have been applicable even at the start of the survey in 1972.
+I filtered the above dataset removing the NA values in income06, natmass and year variables and other specific values which signified ambiguity like "DK" and people who refused to disclose their income ("Refused"). I stores data with all these changes in "mass_transport". This will be my new dataset on which I will be performing my analysis.
+```{r}
+mass_transport <- gss %>%
+  filter(!is.na(income06) &
+           !is.na(natmass) &
+           !is.na(year) &
+           natmass != "DK" & income06 != "Refused") %>%  
+  select(income06,natmass,year)
+
+dim(mass_transport)
+```
+
+Total family income has many levels (25) and the analysis could get complicated to consider all the levels. I grouped total family income from under $1000 to $14999 as "Low" Income". Income range from $15000 to $75000 as "Moderate Income" and income range from $75000 and above as "High Income".
+
+To carry out this modification, I converted all the values in income06 to character, made the changes and then reverted the values to factor values.
+```{r}
+mass_transport$income06 <- as.character(mass_transport$income06)
+mass_transport$income06[mass_transport$income06 == "Under $1 000"] <- "Low Income"
+mass_transport$income06[mass_transport$income06 == "$1 000 To 2 999"] <- "Low Income"
+mass_transport$income06[mass_transport$income06 == "$3 000 To 3 999"] <- "Low Income"
+mass_transport$income06[mass_transport$income06 == "$4 000 To 4 999"] <- "Low Income"
+mass_transport$income06[mass_transport$income06 == "$5 000 To 5 999"] <- "Low Income"
+mass_transport$income06[mass_transport$income06 == "$6 000 To 6 999"] <- "Low Income"
+mass_transport$income06[mass_transport$income06 == "$7 000 To 7 999"] <- "Low Income"
+mass_transport$income06[mass_transport$income06 == "$8 000 To 9 999"] <- "Low Income"
+mass_transport$income06[mass_transport$income06 == "$10000 To 12499"] <- "Low Income"
+mass_transport$income06[mass_transport$income06 == "$12500 To 14999"] <- "Low Income"
+mass_transport$income06[mass_transport$income06 == "$15000 To 17499"] <- "Moderate Income"
+mass_transport$income06[mass_transport$income06 == "$17500 To 19999"] <- "Moderate Income"
+mass_transport$income06[mass_transport$income06 == "$20000 To 22499"] <- "Moderate Income"
+mass_transport$income06[mass_transport$income06 == "$22500 To 24999"] <- "Moderate Income"
+mass_transport$income06[mass_transport$income06 == "$25000 To 29999"] <- "Moderate Income"
+mass_transport$income06[mass_transport$income06 == "$30000 To 34999"] <- "Moderate Income"
+mass_transport$income06[mass_transport$income06 == "$35000 To 39999"] <- "Moderate Income"
+mass_transport$income06[mass_transport$income06 == "$40000 To 49999"] <- "Moderate Income"
+mass_transport$income06[mass_transport$income06 == "$50000 To 59999"] <- "Moderate Income"
+mass_transport$income06[mass_transport$income06 == "$60000 To 74999"] <- "Moderate Income"
+mass_transport$income06[mass_transport$income06 == "$75000 To $89999"] <- "High Income"
+mass_transport$income06[mass_transport$income06 == "$90000 To $109999"] <- "High Income"
+mass_transport$income06[mass_transport$income06 == "$110000 To $129999"] <- "High Income"
+mass_transport$income06[mass_transport$income06 == "$130000 To $149999"] <- "High Income"
+mass_transport$income06[mass_transport$income06 == "$150000 Or Over"] <- "High Income"
+
+mass_transport$income06 <- as.factor(mass_transport$income06)
+
+
+```
+
+```{r}
+table(mass_transport$income06)
+str(mass_transport)
+```
+
+Sample Distribution of Total Family Income of individuals
+```{r}
+ggplot(data.frame(mass_transport$income06), aes(x=mass_transport$income06)) +
+  geom_bar(fill="#FF9999", colour="black")
+```
+Interpretation:
+
+a) There are a large number of people (4000+) coming under "Moderate Income" category and fewer people under the Low and High Income Categories
+b) Due to this fact, analysis may be a little biased towards the opinion of people with moderate income.
+
+Sample Distribution of Mass Transportation Opinion:
+```{r}
+ggplot(data.frame(mass_transport$natmass), aes(x=mass_transport$natmass)) +
+  geom_bar(fill="purple", colour="black")
+```
+Interpretation:
+
+a) A large number of people are of the opinion that they spend "Too Little" on mass transportation.
+b) A slightly higher number of people think they spend the right amount of money on mass transportation
+c) Very few people think that they spend too much on mass transportation.
+
+
+```{r}
+
+ggplot(data=mass_transport, aes(x=income06, y=natmass, fill=natmass)) + geom_bar(stat="identity")
+```
+Interpretation:
+
+The above plot shows the opinion of the individual groups and we can see how the opinion is spread out in each group.
+a) In all the three groups, majority of the people think that they spend enough or the right amount of money on mass transportation. In other words, they are satisfied with the money they are spending on it.
+b) However, there are some people who think they spend too much on mass transportation (blue) and the focus of the US Government should be on reducing these "blues" in all the groups.
+
+
+* * *
+
+## Part 4: Inference
+
+State Hypothesis:
+
+Null Hypothesis: The income levels of families and opinion on mass transportation spending are independent.
+Alternate Hypothesis: The income levels of families and opinion on mass transportation spending are dependent.
+
+As we have two categorical variables (with both of them having more than two levels), the hypothesis test to be performed is the chi-sq test of independence by comparing proportions across several groups.
+
+Checking conditions:
+
+a) Independence: GSS dataset is generated from a random sample survey. We are fine in assuming that the records are independent.
+
+b) Expected Counts:
+```{r}
+chisq.test(mass_transport$income06,mass_transport$natmass)$expected
+```
+From the above table, the expected counts are above the minimum required of 5 for each cell.
+
+Chi-Square test of independence:
+Method 1:-
+```{r}
+chisq.test(mass_transport$income06,mass_transport$natmass )
+```
+
+Method 2:-
+```{r}
+inference(y = natmass, x = income06, data = mass_transport, statistic = "proportion", type = "ht", null = 0, alternative = "greater", method = "theoretical")
+```
+
+
+Intepretation and Findings:
+With a p-value of zero, there is strong evidence to reject the Null Hypothesis. Hence, we have convincing evidence to state that the income levels of families and opinion on mass transportation are dependent in the United States.
+
+
+Conclusion and Suggestions:
+The analysis signifies that the US Government is doing a decent job in not overburdening people belong to low and high income levels and not a lot of people are unhappy with the prices of public transportation. The scenario may look positive but this however, does not mean that the Government should take it easy and keep things the same way. They should maintain and keep improving mass transportation to satisfy the majority of the people who come under the Low and High Income family income ranges because they will be the ones using mass transportation the most.
+
+Thank You,
+I will appreciate your suggestions on improving this project.
